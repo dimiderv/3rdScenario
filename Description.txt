@@ -1,0 +1,1 @@
+In this scenarion no data are sent externally communication is done through Fabric blockchain
