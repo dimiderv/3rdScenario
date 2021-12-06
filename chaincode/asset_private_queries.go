@@ -43,11 +43,7 @@ func (s *SmartContract) ReadRequestToBuy(ctx contractapi.TransactionContextInter
 		log.Printf("RequestToBuyObject for %v does not exist", assetID)
 		return nil, nil
 	}
-	// type requestTemp struct {
-	// 	ID       string `json:"asset_id"`
-	// 	Price 	 int `json:"price"`
-	// 	TradeID  string `json:"trade_id"`
-	// }
+
 	var assetBuyRequestObj RequestToBuyObject
 	err = json.Unmarshal(requestJSON, &assetBuyRequestObj)
 	if err != nil {
@@ -98,8 +94,9 @@ func (s *SmartContract) ReadAssetPrice(ctx contractapi.TransactionContextInterfa
 	}
 	type assetPriceTemp struct {
 		ID       string `json:"asset_id"`
-		Price 	 int `json:"price"`
+		Price 	 int 	`json:"price"`
 		TradeID  string `json:"trade_id"`
+		Salt  	 string `json:"salt"`
 	}
 	var assetPriceInput assetPriceTemp
 	err = json.Unmarshal(priceJSON, &assetPriceInput)
@@ -109,8 +106,8 @@ func (s *SmartContract) ReadAssetPrice(ctx contractapi.TransactionContextInterfa
 	request := &assetPriceTransientInput{
 		ID:      assetPriceInput.ID,
 		Price: 	 assetPriceInput.Price,
-		TradeID:  assetPriceInput.TradeID,
-	}
+		TradeID: assetPriceInput.TradeID,
+		Salt: 	 assetPriceInput.Salt}
 	return request, nil
 }
 

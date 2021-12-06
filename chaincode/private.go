@@ -5,7 +5,7 @@ import (
   "fmt"
   "log"
   "bytes"
-  "github.com/hyperledger/fabric-chaincode-go/pkg/statebased"
+  //"github.com/hyperledger/fabric-chaincode-go/pkg/statebased"
   "github.com/hyperledger/fabric-contract-api-go/contractapi"
   "time"
   
@@ -41,11 +41,12 @@ type RequestToBuyObject struct {
 	BuyerID string `json:"buyerID"`
 	BuyerMSP string `json:"buyerMSP"`
 }
-
+//added salt
 type assetPriceTransientInput struct {
 	ID       string `json:"asset_id"`
 	Price 	 int `json:"price"`
 	TradeID  string `json:"trade_id"`
+	Salt 	 string `json:"salt"`
 }
 
 
@@ -65,7 +66,16 @@ func (s *SmartContract) SetPrice(ctx contractapi.TransactionContextInterface, as
 
 	// Verify that this client  actually owns the asset.
 	if clientID != asset.Owner {
-		return fmt.Errorf("a client from %s cannot sell an asset owned by %s", clientID, asset.Owner)
+		return fmt.Errorf("a client  %s cannot sell an asset owned by %s", clientID, asset.Owner)
+	}
+	
+	clientOrgID, err := ctx.GetClientIdentity().GetMSPID()
+	if err != nil {
+		return  fmt.Errorf("failed getting client's orgID: %v", err)
+	}
+
+	if clientOrgID != asset.OwnerOrg {
+		return fmt.Errorf("submitting client not from the same Org.Clients org is %s and buyers is %s", clientOrgID, asset.OwnerOrg)
 	}
 
 	return SaveToSellerCollection(ctx, assetID, typeAssetForSale)
@@ -301,13 +311,14 @@ func (s *SmartContract) TransferRequestedAsset(ctx contractapi.TransactionContex
 	}
 
 	// Verify transfer details and transfer owner
-	err = s.verifyAgreement(ctx, assetID, asset.Owner, buyRequest.BuyerMSP)
+	err = s.verifyAgreement(ctx, assetID, asset.Owner,asset.OwnerOrg, buyRequest.BuyerMSP)
 	if err != nil {
 		return fmt.Errorf("failed transfer verification: %v", err)
 	}
 
 	//change ownership
 	asset.Owner = buyRequest.BuyerID
+	asset.OwnerOrg = buyRequest.BuyerMSP
 
 	assetJSONasBytes, err := json.Marshal(asset)
 	if err != nil {
@@ -355,7 +366,7 @@ func (s *SmartContract) TransferRequestedAsset(ctx contractapi.TransactionContex
 // verifyAgreement is an internal helper function used by TransferAsset to verify
 // that the transfer is being initiated by the owner and that the buyer has agreed
 // to the same appraisal value as the owner
-func (s *SmartContract) verifyAgreement(ctx contractapi.TransactionContextInterface, assetID string, owner string, buyerMSP string) error {
+func (s *SmartContract) verifyAgreement(ctx contractapi.TransactionContextInterface, assetID string, owner string,ownerOrg string, buyerMSP string) error {
 
 	// Check 1: verify that the transfer is being initiatied by the owner
 
@@ -368,6 +379,17 @@ func (s *SmartContract) verifyAgreement(ctx contractapi.TransactionContextInterf
 	if clientID != owner {
 		return fmt.Errorf("error: submitting client identity does not own asset")
 	}
+
+	//added this to avoid same name but different orgs
+	clientOrgID, err := ctx.GetClientIdentity().GetMSPID()
+	if err != nil {
+		return  fmt.Errorf("failed getting client's orgID: %v", err)
+	}
+
+	if clientOrgID != ownerOrg {
+		return fmt.Errorf("submitting client not from the same Org.Clients org is %s and buyers is %s",clientOrgID,ownerOrg)
+	}
+
 
 	// Check 2: verify that the buyer has agreed to the appraised value
 

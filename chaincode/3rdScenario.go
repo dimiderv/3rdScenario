@@ -23,11 +23,12 @@ type SmartContract struct {
 
 // Asset describes basic details of what makes up a simple asset
 type Asset struct {
-//   ObjectType 	 string      `json:"objectType"`
-  ID             string  	 `json:"ID"`
+  ID             string  	 `json:"ID"`	
+  AssetType 	 string      `json:"assetType"`
   Color          string 	 `json:"color"`
   Weight         int         `json:"weight"`
   Owner          string      `json:"owner"`
+  OwnerOrg       string      `json:"ownerOrg"`
   Timestamp      time.Time 	 `json:"timestamp"`
   Creator        string 	 `json:"creator"`
   ExpirationDate time.Time   `json:"expirationDate"`
@@ -70,13 +71,20 @@ func (s *SmartContract) InitLedger(ctx contractapi.TransactionContextInterface) 
 	}
 	expirationDate := timestamp.AddDate(0,0,7)
 
+	//in case a user from other org has the same name , cause they have different CAs that might happen
+	clientOrgID, err := ctx.GetClientIdentity().GetMSPID()
+	if err != nil {
+		return  fmt.Errorf("failed getting client's orgID: %v", err)
+	}
+
+
 	assets := []Asset{
-		{ID: "asset1", Color: "blue", 	Weight: 5,  Owner: clientID,Timestamp: timestamp,Creator: creatorDN,SensorData:"",ExpirationDate:expirationDate},
-		{ID: "asset2", Color: "orange", Weight: 5,  Owner: clientID, Timestamp: timestamp,Creator: creatorDN,SensorData:"",ExpirationDate:expirationDate},
-		{ID: "asset3", Color: "green", 	Weight: 10, Owner: clientID, Timestamp: timestamp,Creator: creatorDN,SensorData:"",ExpirationDate:expirationDate},
-		{ID: "asset4", Color: "yellow", Weight: 10, Owner: clientID, Timestamp: timestamp,Creator: creatorDN,SensorData:"",ExpirationDate:expirationDate},
-		{ID: "asset5", Color: "black", 	Weight: 15, Owner: clientID, Timestamp: timestamp,Creator: creatorDN,SensorData:"",ExpirationDate:expirationDate},
-		{ID: "asset6", Color: "pink", 	Weight: 15, Owner: clientID,Timestamp: timestamp,Creator: creatorDN,SensorData:"",ExpirationDate:expirationDate},
+		{ID: "asset1", Color: "blue",   AssetType:"berries", Weight: 5,  Owner: clientID, OwnerOrg:clientOrgID,Timestamp: timestamp,Creator: creatorDN,SensorData:"",ExpirationDate:expirationDate},
+		{ID: "asset2", Color: "black",  AssetType:"berries", Weight: 5,  Owner: clientID, OwnerOrg:clientOrgID,Timestamp: timestamp,Creator: creatorDN,SensorData:"",ExpirationDate:expirationDate},
+		{ID: "asset3", Color: "green",  AssetType:"apples",  Weight: 10, Owner: clientID, OwnerOrg:clientOrgID,Timestamp: timestamp,Creator: creatorDN,SensorData:"",ExpirationDate:expirationDate},
+		{ID: "asset4", Color: "yellow", AssetType:"apples",  Weight: 10, Owner: clientID, OwnerOrg:clientOrgID,Timestamp: timestamp,Creator: creatorDN,SensorData:"",ExpirationDate:expirationDate},
+		{ID: "asset5", Color: "red",    AssetType:"apples",  Weight: 15, Owner: clientID, OwnerOrg:clientOrgID,Timestamp: timestamp,Creator: creatorDN,SensorData:"",ExpirationDate:expirationDate},
+		{ID: "asset6", Color: "white",  AssetType:"grapes",  Weight: 15, Owner: clientID, OwnerOrg:clientOrgID,Timestamp: timestamp,Creator: creatorDN,SensorData:"",ExpirationDate:expirationDate},
 	  }
   for _, asset := range assets {
     assetJSON, err := json.Marshal(asset)
@@ -94,7 +102,7 @@ func (s *SmartContract) InitLedger(ctx contractapi.TransactionContextInterface) 
 }
 
 // CreateAsset issues a new asset to the world state with given details and adds price to shared collection.
-func (s *SmartContract) CreateAsset(ctx contractapi.TransactionContextInterface, id string, color string, weight int) error {
+func (s *SmartContract) CreateAsset(ctx contractapi.TransactionContextInterface, id string, color string, weight int,assetType string) error {
 //objectType strings,
 
 	//check if asset already exists
@@ -161,11 +169,12 @@ func (s *SmartContract) CreateAsset(ctx contractapi.TransactionContextInterface,
 
 	// Make submitting client the owner
 	asset := Asset{
-		// ObjectType:		objectType,
 		ID:    			id,
+		AssetType:		assetType,
 		Color: 			color,
 		Weight:  		weight,
 		Owner: 			clientID,
+		OwnerOrg:		clientOrgID,
 		Timestamp:  	timestamp,
 		Creator: 		creatorDN,
 		ExpirationDate:	expirationDate,
@@ -195,6 +204,11 @@ func (s *SmartContract) UpdateAsset(ctx contractapi.TransactionContextInterface,
 		return err
 	}
 
+	clientOrgID, err := ctx.GetClientIdentity().GetMSPID()
+	if err != nil {
+		return  fmt.Errorf("failed getting client's orgID: %v", err)
+	}
+	
 	clientID, err := s.GetSubmittingClientIdentity(ctx)
 	if err != nil {
 		return err
@@ -204,6 +218,9 @@ func (s *SmartContract) UpdateAsset(ctx contractapi.TransactionContextInterface,
 		return fmt.Errorf("submitting client not authorized to update asset, does not own asset")
 	}
 
+	if clientOrgID != asset.OwnerOrg {
+		return fmt.Errorf("submitting client not authorized to update asset, not from the same Org")
+	}
 	asset.Color = newColor
 	asset.Weight = newWeight
 
@@ -233,6 +250,14 @@ func (s *SmartContract) UpdateSensorData(ctx contractapi.TransactionContextInter
 		return fmt.Errorf("submitting client not authorized to update sensor data, does not own asset")
 	}
 
+	clientOrgID, err := ctx.GetClientIdentity().GetMSPID()
+	if err != nil {
+		return  fmt.Errorf("failed getting client's orgID: %v", err)
+	}
+	if clientOrgID != asset.OwnerOrg {
+		return fmt.Errorf("submitting client not authorized to update asset, not from the same Org")
+	}
+
 	asset.SensorData = newSensorData
 	
 
@@ -259,7 +284,16 @@ func (s *SmartContract) DeleteAsset(ctx contractapi.TransactionContextInterface,
 	}
 
 	if clientID != asset.Owner {
-		return fmt.Errorf("submitting client not authorized to update asset, does not own asset")
+		return fmt.Errorf("submitting client not authorized to delete asset, does not own asset")
+	}
+
+	clientOrgID, err := ctx.GetClientIdentity().GetMSPID()
+	if err != nil {
+		return  fmt.Errorf("failed getting client's orgID: %v", err)
+	}
+
+	if clientOrgID != asset.OwnerOrg {
+		return fmt.Errorf("submitting client not authorized to delete asset, not from the same Org")
 	}
 
 	return ctx.GetStub().DelState(id)
@@ -279,8 +313,19 @@ func (s *SmartContract) DeleteBuyRequest(ctx contractapi.TransactionContextInter
 	}
 
 	if clientID != request.BuyerID {
-		return fmt.Errorf("submitting client not authorized to delete buy request , does not own asset")
+		return fmt.Errorf("submitting client not authorized to delete buy request .Not his request. Client is %s and buyer is %s",clientID,request.BuyerID)
 	}
+
+	clientOrgID, err := ctx.GetClientIdentity().GetMSPID()
+	if err != nil {
+		return  fmt.Errorf("failed getting client's orgID: %v", err)
+	}
+
+	if clientOrgID != request.BuyerMSP {
+		return fmt.Errorf("submitting client not authorized to delete buy request, not from the same Org.Clients org is %s and buyers is %s",clientOrgID,request.BuyerMSP)
+	}
+
+
 	requestToBuyKey, err := ctx.GetStub().CreateCompositeKey(requestToBuyObjectType, []string{id})
 	if err != nil {
 		return fmt.Errorf("failed to create composite key: %v", err)
@@ -304,7 +349,7 @@ func (s *SmartContract) DeleteBidRequest(ctx contractapi.TransactionContextInter
 	// Verify that the client is submitting request to peer in their organization
 	err = verifyClientOrgMatchesPeerOrg(ctx)
 	if err != nil {
-		return fmt.Errorf("TransferAsset cannot be performed: Error %v", err)
+		return fmt.Errorf("DeleteBidRequest cannot be performed: Error %v", err)
 	}
 
 	// Get collection name for this organization
@@ -313,6 +358,14 @@ func (s *SmartContract) DeleteBidRequest(ctx contractapi.TransactionContextInter
 		return fmt.Errorf("failed to infer private collection name for the org: %v", err)
 	}
 
+	// readBid,err:= s.GetAssetBidPrice(ctx,assetID)
+	// if err!= nil{
+	// 	return fmt.Errorf("A bid price for %s does not exist",assetID)
+	// }
+	// if readBid == "" {
+	// 	return fmt.Errorf("Bid request for %v does not exist", assetID)
+	// }
+	// fmt.Printf(readBid)
 
 	// Delete the price records for seller
 	assetPriceKey, err := ctx.GetStub().CreateCompositeKey(typeAssetBid, []string{asset.ID})
@@ -324,7 +377,7 @@ func (s *SmartContract) DeleteBidRequest(ctx contractapi.TransactionContextInter
 	//anyone can delete the data??? Probaby solved with access control
 	err = ctx.GetStub().DelPrivateData(collectionBuyer, assetPriceKey)
 	if err != nil {
-		return fmt.Errorf("failed to delete asset price from implicit private data collection for seller: %v", err)
+		return fmt.Errorf("failed to delete bid request from implicit private data collection for seller: %v", err)
 	}
 
 

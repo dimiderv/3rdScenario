@@ -29,7 +29,7 @@ func (s *SmartContract) GetAssetHistory(ctx contractapi.TransactionContextInterf
 		return nil, err
 	}
 	defer resultsIterator.Close()
-	var prevOwner string = ""
+	//var prevOwner string = ""
 	var records []HistoryQueryResult
 	for resultsIterator.HasNext() {
 		response, err := resultsIterator.Next()
@@ -48,11 +48,11 @@ func (s *SmartContract) GetAssetHistory(ctx contractapi.TransactionContextInterf
 				ID: assetID,
 			}
 		}
-		//this can be solved from front end
-		if prevOwner== (asset).Owner{
-			continue 
-		}
-		prevOwner=(asset).Owner
+		// //this can be solved from front end
+		// if prevOwner== (asset).Owner{
+		// 	continue 
+		// }
+		// prevOwner=(asset).Owner
 
 		timestamp, err := ptypes.Timestamp(response.Timestamp)
 		if err != nil {
@@ -70,6 +70,48 @@ func (s *SmartContract) GetAssetHistory(ctx contractapi.TransactionContextInterf
 
 	return records, nil
 }
+type QueryResult struct {
+	Record    *Asset
+	TxId      string    `json:"txId"`
+	Timestamp time.Time `json:"timestamp"`
+}
+
+// QueryAssetHistory returns the chain of custody for a asset since issuance,from secured agreement
+func (s *SmartContract) QueryAssetHistory(ctx contractapi.TransactionContextInterface, assetID string) ([]QueryResult, error) {
+	resultsIterator, err := ctx.GetStub().GetHistoryForKey(assetID)
+	if err != nil {
+		return nil, err
+	}
+	defer resultsIterator.Close()
+
+	var results []QueryResult
+	for resultsIterator.HasNext() {
+		response, err := resultsIterator.Next()
+		if err != nil {
+			return nil, err
+		}
+
+		var asset *Asset
+		err = json.Unmarshal(response.Value, &asset)
+		if err != nil {
+			return nil, err
+		}
+
+		timestamp, err := ptypes.Timestamp(response.Timestamp)
+		if err != nil {
+			return nil, err
+		}
+		record := QueryResult{
+			TxId:      response.TxId,
+			Timestamp: timestamp,
+			Record:    asset,
+		}
+		results = append(results, record)
+	}
+
+	return results, nil
+}
+
 
 // ReadAsset returns the asset stored in the world state with given id.
 func (s *SmartContract) ReadAsset(ctx contractapi.TransactionContextInterface, id string) (*Asset, error) {
