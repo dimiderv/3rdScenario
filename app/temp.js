@@ -192,15 +192,22 @@ async function main() {
             // let assetID = `asset${randomNumber}`;
             let assetID = `asset${randomNumber}`;
             let transaction;
-			console.log('------------------------Here Farmer Controls the App ------------------------\n');
+            let result;
+			// console.log('------------------------Here Farmer Controls the App ------------------------\n');
 
-
+			// console.log("******************Public Details of Asset Created ***********************\n")
+            // console.log('Adding Assets to work with:\n--> Submit Transaction: Create Asset ' + assetID);
+            // statefulTxn = contractOrg1.createTransaction('DeleteAsset');
+            // statefulTxn.setEndorsingOrganizations(mspOrg1);
+            // result = await statefulTxn.submit(assetID);
+			// console.log(" Asset Was created. Public details should be present !");
+            // await sleep(3000);
 
 			console.log("******************Public Details of Asset Created ***********************\n")
             console.log('Adding Assets to work with:\n--> Submit Transaction: Create Asset ' + assetID);
             statefulTxn = contractOrg1.createTransaction('CreateAsset');
             statefulTxn.setEndorsingOrganizations(mspOrg1);
-            let result = await statefulTxn.submit(assetID,'green',10);
+            result = await statefulTxn.submit(assetID,'green',10,'apples');
 			console.log(" Asset Was created. Public details should be present !");
             await sleep(3000);
 
@@ -460,10 +467,37 @@ async function main() {
 
 
 
-		    console.log('\n~~~~~~~~~~~~~~~~ As Org3 Client ~~~~~~~~~~~~~~~~');
+		    // console.log('\n~~~~~~~~~~~~~~~~ As Org3 Client ~~~~~~~~~~~~~~~~');
 			console.log('\n--> Evaluate Transaction: GetAssetHistory, get the history of ',assetID);
 			result = await contractOrg2.evaluateTransaction('GetAssetHistory', assetID);
 			console.log(`*** Result: ${prettyJSONString(result.toString())}`);
+            let finalHistory=[];
+            let json=JSON.stringify(result)
+            let bufferOriginal = Buffer.from(JSON.parse(json).data);
+           // console.log(result);
+           // console.log(bufferOriginal.toString('utf8'));
+           // console.log(JSON.parse(bufferOriginal.toString('utf8')))
+            // console.log(temp,json)
+            let history=JSON.parse(bufferOriginal.toString('utf8'));
+            let flag=false
+            for (const i in history ) {
+                //console.log(history[i])
+                //console.log(history[i])
+                // if(flag){
+                //     break
+                // }
+                if(history[i].isDelete===true){
+                    flag=true
+                    break
+                }else{
+                    finalHistory.push(history[i])
+                }
+                console.log("this is final hiustory on iteration ",i ,finalHistory)
+            }
+            console.log("++++++++++++++++++++++++++++++++++++")
+              console.log(finalHistory)
+       
+           // console.log(`jajajjaj ${prettyJSONString(finalHistory)}`);
 
 
 
