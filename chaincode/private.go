@@ -207,9 +207,6 @@ func SaveToBuyerCollection(ctx contractapi.TransactionContextInterface, assetID 
 		return fmt.Errorf("failed to put asset bid: %v", err)
 	}
 
-
-
-
 	return nil
 }
 

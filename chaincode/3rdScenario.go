@@ -50,9 +50,8 @@ func (s *SmartContract) InitLedger(ctx contractapi.TransactionContextInterface) 
 	err := ctx.GetClientIdentity().AssertAttributeValue("farmer", "true")
 	if err != nil {
 		return fmt.Errorf("submitting client not authorized to create asset, he is not a Farmer")
-	}
-	
-	
+	}	
+
 	timeS,err:= ctx.GetStub().GetTxTimestamp()
 	if err != nil {
 		return  err
@@ -133,8 +132,6 @@ func (s *SmartContract) CreateAsset(ctx contractapi.TransactionContextInterface,
 		return fmt.Errorf("submitting client not authorized to create asset, he is not a Farmer")
 	}
 	
-		
-
 	// Get ID of submitting client identity
 	clientID, err := s.GetSubmittingClientIdentity(ctx)
 	if err != nil {
@@ -259,8 +256,6 @@ func (s *SmartContract) UpdateSensorData(ctx contractapi.TransactionContextInter
 	}
 
 	asset.SensorData = newSensorData
-	
-
 
 	assetJSON, err := json.Marshal(asset)
 	if err != nil {
@@ -301,7 +296,6 @@ func (s *SmartContract) DeleteAsset(ctx contractapi.TransactionContextInterface,
 
 //Delete Buy Request
 func (s *SmartContract) DeleteBuyRequest(ctx contractapi.TransactionContextInterface, id string, sharedCollection string) error {
-	//temp:=assetCollection
 	request, err := s.ReadRequestToBuy(ctx, id,sharedCollection)
 	if err != nil {
 		return err
@@ -315,7 +309,7 @@ func (s *SmartContract) DeleteBuyRequest(ctx contractapi.TransactionContextInter
 	if clientID != request.BuyerID {
 		return fmt.Errorf("submitting client not authorized to delete buy request .Not his request. Client is %s and buyer is %s",clientID,request.BuyerID)
 	}
-
+	
 	clientOrgID, err := ctx.GetClientIdentity().GetMSPID()
 	if err != nil {
 		return  fmt.Errorf("failed getting client's orgID: %v", err)
@@ -324,7 +318,6 @@ func (s *SmartContract) DeleteBuyRequest(ctx contractapi.TransactionContextInter
 	if clientOrgID != request.BuyerMSP {
 		return fmt.Errorf("submitting client not authorized to delete buy request, not from the same Org.Clients org is %s and buyers is %s",clientOrgID,request.BuyerMSP)
 	}
-
 
 	requestToBuyKey, err := ctx.GetStub().CreateCompositeKey(requestToBuyObjectType, []string{id})
 	if err != nil {
@@ -358,21 +351,11 @@ func (s *SmartContract) DeleteBidRequest(ctx contractapi.TransactionContextInter
 		return fmt.Errorf("failed to infer private collection name for the org: %v", err)
 	}
 
-	// readBid,err:= s.GetAssetBidPrice(ctx,assetID)
-	// if err!= nil{
-	// 	return fmt.Errorf("A bid price for %s does not exist",assetID)
-	// }
-	// if readBid == "" {
-	// 	return fmt.Errorf("Bid request for %v does not exist", assetID)
-	// }
-	// fmt.Printf(readBid)
-
 	// Delete the price records for seller
 	assetPriceKey, err := ctx.GetStub().CreateCompositeKey(typeAssetBid, []string{asset.ID})
 	if err != nil {
 		return fmt.Errorf("failed to create composite key for seller: %v", err)
 	}
-
 
 	//anyone can delete the data??? Probaby solved with access control
 	err = ctx.GetStub().DelPrivateData(collectionBuyer, assetPriceKey)
